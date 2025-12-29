@@ -4,6 +4,7 @@ This project scrapes blog articles from the BeyondChats website and enhances the
 
 # System Architecture & Data Flow
 
+```mermaid
 flowchart TD
 
     A[User Opens Web App] --> B[React Frontend]
@@ -28,6 +29,7 @@ flowchart TD
 
     H --> B
     B --> L[Render Enhanced Content]
+```
 
 ## Project Structure
 
