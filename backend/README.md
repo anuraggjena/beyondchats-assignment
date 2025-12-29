@@ -73,6 +73,15 @@ The server will run at: `http://localhost:5000`
 - **Endpoint:** `POST /api/articles/scrape`
 - **Description:** Scrapes articles from BeyondChats and stores them in the database.
 
+#### Automatic Data Initialization
+
+On server startup, the backend checks whether any articles exist in the database.
+
+- If no articles are found, it automatically scrapes the latest blog posts.
+- If articles already exist, scraping is skipped to avoid duplicates.
+
+This ensures the system works correctly even on a fresh deployment without requiring any manual setup.
+
 ### 2. Get All Articles
 - **Endpoint:** `GET /api/articles`
 - **Description:** Returns all stored articles.
