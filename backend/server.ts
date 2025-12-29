@@ -11,6 +11,10 @@ import { scrapeState } from "./scrapeState";
 
 const app = express();
 
+app.get("/api/health", (_, res) => {
+  res.json({ status: "ok" });
+});
+
 app.use(cors());
 app.use(express.json());
 app.use("/api", routes);
