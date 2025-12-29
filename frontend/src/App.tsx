@@ -9,7 +9,7 @@ type Article = {
   isUpdated: boolean;
 };
 
-const API = "https://beyondchats-backend-ctvd.onrender.com/api";
+const API = import.meta.env.VITE_API_URL;
 
 export default function App() {
   const [articles, setArticles] = useState<Article[]>([]);
