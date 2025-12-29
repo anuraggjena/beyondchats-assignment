@@ -5,10 +5,20 @@ import { Readability } from "@mozilla/readability";
 import { db } from "./db";
 import { articles } from "./schema";
 import { eq } from "drizzle-orm";
-import { searchGoogle } from "./search";
 import { generateWithGrok } from "./grok";
 
-const extractMainContent = async (url: string): Promise<string> => {
+const cleanHtml = (html: string): string => {
+  return html
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
+const extractArticleContent = async (url: string): Promise<string> => {
   const response = await axios.get(url, {
     headers: {
       "User-Agent":
@@ -20,123 +30,152 @@ const extractMainContent = async (url: string): Promise<string> => {
   const reader = new Readability(dom.window.document);
   const article = reader.parse();
 
-  return article?.textContent || "";
+  if (!article?.content) return "";
+
+  return cleanHtml(article.content);
 };
 
-const cleanContent = (text: string) => {
-  return text
-    .replace(/\n{2,}/g, "\n")
-    .replace(/\s{2,}/g, " ")
-    .replace(/Reply/gi, "")
-    .replace(/Comments?/gi, "")
-    .trim();
-};
-
+/* =========================
+   GET ARTICLES
+========================= */
 export const getArticles = async (_req: Request, res: Response) => {
   const data = await db.select().from(articles);
   res.json(data);
 };
 
+/* =========================
+   SCRAPE OLDEST 5 ARTICLES
+========================= */
 export const scrapeAndStoreArticles = async (
   _req: Request,
   res: Response
 ) => {
-  res.json({ success: true });
+  try {
+    let url = "https://beyondchats.com/blogs";
+    const allLinks: string[] = [];
+
+    // Crawl using "Older posts"
+    while (url) {
+      const page = await axios.get(url);
+      const dom = new JSDOM(page.data);
+      const doc = dom.window.document;
+
+      const links = [...doc.querySelectorAll("a")]
+        .map((a) => a.href)
+        .filter(
+          (href) =>
+            href.includes("/blogs/") &&
+            !href.includes("/page/") &&
+            !href.includes("#")
+        );
+
+      for (const link of links) {
+        if (!allLinks.includes(link)) {
+          allLinks.push(link);
+        }
+      }
+
+      const next = doc.querySelector("a.next");
+      if (!next) break;
+
+      url = next.getAttribute("href")!;
+    }
+
+    // Take oldest 5
+    const oldestFive = allLinks.slice(-5);
+
+    let inserted = 0;
+
+    for (const link of oldestFive) {
+      const exists = await db
+        .select()
+        .from(articles)
+        .where(eq(articles.sourceUrl, link));
+
+      if (exists.length) continue;
+
+      const content = await extractArticleContent(link);
+      if (!content || content.length < 300) continue;
+
+      const title = link
+        .split("/")
+        .filter(Boolean)
+        .pop()
+        ?.replace(/-/g, " ")
+        ?.replace(/\b\w/g, (l) => l.toUpperCase());
+
+      await db.insert(articles).values({
+        title: title || "Untitled Article",
+        content,
+        sourceUrl: link,
+        isUpdated: false,
+      });
+
+      inserted++;
+    }
+
+    res.json({ success: true, inserted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Scraping failed" });
+  }
 };
 
-export const enhanceArticle = async (
-  req: Request,
-  res: Response
-) => {
+/* =========================
+   ENHANCE SINGLE ARTICLE
+========================= */
+export const enhanceArticle = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Number(req.params.id);
 
     const [article] = await db
       .select()
       .from(articles)
-      .where(eq(articles.id, Number(id)));
+      .where(eq(articles.id, id));
 
     if (!article) {
       return res.status(404).json({ error: "Article not found" });
     }
 
-    const results = await searchGoogle(article.title);
-
-    const extractedContents: string[] = [];
-
-    for (const r of results) {
-      try {
-        const raw = await extractMainContent(r.link);
-        const cleaned = cleanContent(raw);
-        extractedContents.push(cleaned);
-      } catch {
-        continue;
-      }
-    }
-
-    const enhancedRaw = await generateWithGrok(
-      article.content,
-      extractedContents[0] || "",
-      extractedContents[1] || ""
-    );
-
-    const enhanced = cleanContent(enhancedRaw);
+    const enhanced = await generateWithGrok(article.content, "", "");
 
     await db
       .update(articles)
       .set({
         enhancedContent: enhanced,
-        references: results.map(r => r.link).join("\n"),
         isUpdated: true,
       })
-      .where(eq(articles.id, article.id));
+      .where(eq(articles.id, id));
 
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to enhance article" });
+    res.status(500).json({ error: "Enhancement failed" });
   }
 };
 
-export const enhanceAllArticles = async (
-  _req: Request,
-  res: Response
-) => {
-  const all = await db.select().from(articles);
+/* =========================
+   ENHANCE ALL
+========================= */
+export const enhanceAllArticles = async (_req: Request, res: Response) => {
+  try {
+    const all = await db.select().from(articles);
 
-  for (const article of all) {
-    if (article.isUpdated) continue;
+    for (const article of all) {
+      if (article.isUpdated) continue;
 
-    const results = await searchGoogle(article.title);
+      const enhanced = await generateWithGrok(article.content, "", "");
 
-    const contents: string[] = [];
-
-    for (const r of results) {
-      try {
-        const raw = await extractMainContent(r.link);
-        contents.push(cleanContent(raw));
-      } catch {
-        continue;
-      }
+      await db
+        .update(articles)
+        .set({
+          enhancedContent: enhanced,
+          isUpdated: true,
+        })
+        .where(eq(articles.id, article.id));
     }
 
-    const enhanced = cleanContent(
-      await generateWithGrok(
-        article.content,
-        contents[0] || "",
-        contents[1] || ""
-      )
-    );
-
-    await db
-      .update(articles)
-      .set({
-        enhancedContent: enhanced,
-        references: results.map(r => r.link).join("\n"),
-        isUpdated: true,
-      })
-      .where(eq(articles.id, article.id));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Bulk enhancement failed" });
   }
-
-  res.json({ success: true, message: "All articles enhanced" });
 };

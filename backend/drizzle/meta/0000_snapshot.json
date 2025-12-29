@@ -1,5 +1,5 @@
 {
-  "id": "ad63c675-73d6-4d13-9e21-a72e2c688308",
+  "id": "98f0309c-e06e-4bef-a8f2-22791484c5ad",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -28,6 +28,18 @@
         },
         "source_url": {
           "name": "source_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "enhanced_content": {
+          "name": "enhanced_content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "references": {
+          "name": "references",
           "type": "text",
           "primaryKey": false,
           "notNull": false

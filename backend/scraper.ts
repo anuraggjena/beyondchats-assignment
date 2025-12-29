@@ -1,43 +1,70 @@
 import axios from "axios";
-import * as cheerio from "cheerio";
+import { JSDOM } from "jsdom";
+import { Readability } from "@mozilla/readability";
+import { db } from "./db";
+import { articles } from "./schema";
+import { eq } from "drizzle-orm";
 
-export const scrapeOldestBlogs = async () => {
-  const url = "https://beyondchats.com/blogs/";
-  const { data } = await axios.get(url);
+export async function scrapeOldestBlogs() {
+  let url = "https://beyondchats.com/blogs";
+  const allLinks: string[] = [];
 
-  const $ = cheerio.load(data);
+  // 1️⃣ Walk through pagination using "Older posts"
+  while (url) {
+    const res = await axios.get(url);
+    const dom = new JSDOM(res.data);
+    const doc = dom.window.document;
 
-  const articles: {
-    title: string;
-    content: string;
-    sourceUrl: string;
-  }[] = [];
+    const links = [...doc.querySelectorAll("a")]
+      .map(a => a.href)
+      .filter(h => h.includes("/blogs/") && !h.includes("/page/"));
 
-  const blogCards = $("article").slice(-5);
+    for (const link of links) {
+      if (!allLinks.includes(link)) {
+        allLinks.push(link);
+      }
+    }
 
-  console.log("Blog cards found:", $("article").length);
+    // find "Older posts" link
+    const next = doc.querySelector("a.next");
 
-  for (const el of blogCards.toArray()) {
-    const title = $(el).find("h2, h3").first().text().trim();
-    const link = $(el).find("a").attr("href");
-
-    if (!title || !link) continue;
-
-    const articleUrl = link.startsWith("http")
-      ? link
-      : `https://beyondchats.com${link}`;
-
-    const articleRes = await axios.get(articleUrl);
-    const articlePage = cheerio.load(articleRes.data);
-
-    const content = articlePage("article").text().trim();
-
-    articles.push({
-      title,
-      content,
-      sourceUrl: articleUrl,
-    });
+    if (!next) break;
+    url = next.getAttribute("href")!;
   }
 
-  return articles;
-};
+  // 2️⃣ Take the LAST 5 = oldest
+  const oldestFive = allLinks.slice(-5);
+
+  let inserted = 0;
+
+  for (const link of oldestFive) {
+    const exists = await db
+      .select()
+      .from(articles)
+      .where(eq(articles.sourceUrl, link));
+
+    if (exists.length) continue;
+
+    const html = await axios.get(link);
+    const dom = new JSDOM(html.data, { url: link });
+
+    const reader = new Readability(dom.window.document);
+    const article = reader.parse();
+
+    if (!article?.title || !article?.textContent) continue;
+
+    await db.insert(articles).values({
+      title: article.title.trim(),
+      content: article.textContent.trim(),
+      sourceUrl: link,
+      isUpdated: false,
+    });
+
+    inserted++;
+  }
+
+  return {
+    success: true,
+    inserted,
+  };
+}
