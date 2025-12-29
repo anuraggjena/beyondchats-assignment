@@ -19,7 +19,7 @@ app.use(cors());
 app.use(express.json());
 app.use("/api", routes);
 
-const PORT = process.env.PORT! || 5000;
+const PORT = process.env.PORT || 5000;
 
 app.get("/api/status", (_req, res) => {
   res.json({ scraping: scrapeState.isScraping });
