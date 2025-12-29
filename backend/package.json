@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev server.ts",
     "db:push": "drizzle-kit push",
-    "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "ts-node server.js"
   },
   "keywords": [],
   "author": "",
