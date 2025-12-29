@@ -5,7 +5,7 @@ import { Readability } from "@mozilla/readability";
 import { db } from "./db";
 import { articles } from "./schema";
 import { eq } from "drizzle-orm";
-import { generateWithGrok } from "./grok";
+import { generateWithGroq } from "./groq";
 
 const cleanHtml = (html: string): string => {
   return html
@@ -137,7 +137,17 @@ export const enhanceArticle = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Article not found" });
     }
 
-    const enhanced = await generateWithGrok(article.content, "", "");
+    console.log("Enhancing article:", article.title);
+
+    const enhanced = await generateWithGroq(
+      article.content,
+      article.title,
+      article.sourceUrl ?? ""
+    );
+
+    if (!enhanced || enhanced.length < 50) {
+      throw new Error("Empty or invalid AI response");
+    }
 
     await db
       .update(articles)
@@ -148,8 +158,12 @@ export const enhanceArticle = async (req: Request, res: Response) => {
       .where(eq(articles.id, id));
 
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: "Enhancement failed" });
+  } catch (err: any) {
+    console.error("❌ Enhance failed:", err?.response?.data || err.message);
+    res.status(500).json({
+      error: "Enhancement failed",
+      details: err?.response?.data || err.message,
+    });
   }
 };
 
@@ -163,7 +177,7 @@ export const enhanceAllArticles = async (_req: Request, res: Response) => {
     for (const article of all) {
       if (article.isUpdated) continue;
 
-      const enhanced = await generateWithGrok(article.content, "", "");
+      const enhanced = await generateWithGroq(article.content, "", "");
 
       await db
         .update(articles)
