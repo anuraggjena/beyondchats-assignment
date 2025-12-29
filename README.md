@@ -7,28 +7,27 @@ This project scrapes blog articles from the BeyondChats website and enhances the
 ```mermaid
 flowchart TD
 
-    A[User Opens Web App] --> B[React Frontend]
-    
-    B -->|Check status| C[/api/status]
+    A["User Opens Web App"] --> B["React Frontend"]
+
+    B -->|Check status| C["GET api status"]
     C --> D{Is scraping done?}
 
-    D -- No --> E[Show loading screen]
+    D -- No --> E["Show loading screen"]
     E --> C
 
-    D -- Yes --> F[Fetch articles]
-    F --> G[/api/articles]
+    D -- Yes --> F["Fetch articles"]
+    F --> G["GET api articles"]
+    G --> H[(PostgreSQL Database)]
 
-    G --> H[(PostgreSQL DB)]
+    B -->|Select article| I["View Original Content"]
 
-    B -->|Select article| I[View Original Content]
-
-    B -->|Click Enhance| J[/api/articles/:id/enhance]
-    J --> K[Groq LLM API]
+    B -->|Click Enhance| J["POST enhance article"]
+    J --> K["Groq LLM API"]
     K --> J
     J --> H
 
     H --> B
-    B --> L[Render Enhanced Content]
+    B --> L["Render Enhanced Content"]
 ```
 
 ## Project Structure
