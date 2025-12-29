@@ -23,6 +23,7 @@ backend/
 ├── db.ts             # Database connection
 ├── schema.ts         # Database schema
 ├── routes.ts         # API routes
+├── scrapeState.ts    # Auto-scraping Loader
 ├── server.ts         # App entry point
 ├── drizzle/          # Migrations
 ├── .env              # Environment variables

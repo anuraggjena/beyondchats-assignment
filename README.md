@@ -2,6 +2,33 @@
 
 This project scrapes blog articles from the BeyondChats website and enhances them using AI. Users can compare original content with AI-enhanced versions in a clean UI.
 
+# System Architecture & Data Flow
+
+```
+flowchart TD
+
+    A[User Browser] -->|Loads UI| B[React Frontend]
+    B -->|Check status| C[/api/status/]
+    C --> D[Express Backend]
+
+    D -->|Scraping state| E[Scrape State Manager]
+
+    E -->|If empty| F[Auto Scraper]
+    F -->|Fetch blog pages| G[BeyondChats Website]
+    F -->|Extract content| H[Article Parser]
+    H --> I[(PostgreSQL Database)]
+
+    B -->|Fetch articles| D
+    D --> I
+
+    B -->|Enhance article| D
+    D -->|Send content| J[Groq LLM API]
+    J -->|Enhanced content| D
+    D --> I
+
+    B -->|Display| K[Original + Enhanced View]
+```
+
 ## Project Structure
 
 ```
