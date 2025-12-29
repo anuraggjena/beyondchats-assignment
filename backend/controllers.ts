@@ -5,8 +5,6 @@ import { scrapeOldestBlogs } from "./scraper";
 import { eq } from "drizzle-orm";
 import { generateWithGrok } from "./grok";
 import { searchGoogle } from "./search";
-import axios from "axios";
-import * as cheerio from "cheerio";
 
 export const getArticles = async (_: Request, res: Response) => {
   const data = await db.select().from(articles);
@@ -38,40 +36,33 @@ export const scrapeAndStoreArticles = async (_: Request, res: Response) => {
   });
 };
 
-export const enhanceArticle = async (req: Request, res: Response) => {
-  const { id } = req.params;
+export const enhanceAllArticles = async (req: Request, res: Response) => {
+  const allArticles = await db.select().from(articles);
 
-  const [article] = await db
-    .select()
-    .from(articles)
-    .where(eq(articles.id, Number(id)));
+  for (const article of allArticles) {
+    if (article.isUpdated) continue;
 
-  if (!article) return res.status(404).json({ error: "Not found" });
+    const results = await searchGoogle(article.title);
 
-  const results = await searchGoogle(article.title);
+    const contents = results.map(
+      r => `${r.title}\n${r.snippet}`
+    );
 
-  const contents: string[] = [];
+    const enhanced = await generateWithGrok(
+      article.content,
+      contents[0],
+      contents[1]
+    );
 
-  for (const r of results) {
-    const html = await axios.get(r.link);
-    const $ = cheerio.load(html.data);
-    contents.push($("article").text());
+    await db
+      .update(articles)
+      .set({
+        enhancedContent: enhanced,
+        references: results.map(r => r.link).join("\n"),
+        isUpdated: true,
+      })
+      .where(eq(articles.id, article.id));
   }
 
-  const enhanced = await generateWithGrok(
-    article.content,
-    contents[0],
-    contents[1]
-  );
-
-  await db
-    .update(articles)
-    .set({
-      enhancedContent: enhanced,
-      references: results.map(r => r.link).join("\n"),
-      isUpdated: true,
-    })
-    .where(eq(articles.id, article.id));
-
-  res.json({ success: true });
+  res.json({ success: true, message: "All articles enhanced" });
 };
