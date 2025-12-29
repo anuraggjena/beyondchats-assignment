@@ -9,7 +9,7 @@ type Article = {
   isUpdated: boolean;
 };
 
-const API = "http://localhost:5000/api";
+const API = "https://beyondchats-backend-ctvd.onrender.com/api";
 
 export default function App() {
   const [articles, setArticles] = useState<Article[]>([]);
