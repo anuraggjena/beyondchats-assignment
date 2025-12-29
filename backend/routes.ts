@@ -1,14 +1,17 @@
 import { Router } from "express";
 import { enhanceAllArticles, enhanceArticle, getArticles, scrapeAndStoreArticles } from "./controllers";
-import { scrapeState } from "./scrapeState";
+import { db } from "./db";
+import { articles } from "./schema";
 
 const router = Router();
 
-router.get("/status", (_req, res) => {
+router.get("/status", async (_req, res) => {
+  const rows = await db.select().from(articles);
   res.json({
-    scraping: scrapeState.isScraping,
+    scraping: rows.length === 0,
   });
 });
+
 router.get("/articles", getArticles);
 router.post("/articles/scrape", scrapeAndStoreArticles);
 router.post("/articles/:id/enhance", enhanceArticle);
