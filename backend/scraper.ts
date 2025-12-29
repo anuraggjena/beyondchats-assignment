@@ -1,38 +1,45 @@
 import axios from "axios";
-import { JSDOM } from "jsdom";
-import { Readability } from "@mozilla/readability";
+import * as cheerio from "cheerio";
 import { db } from "./db";
 import { articles } from "./schema";
 import { eq } from "drizzle-orm";
 
+const BASE_URL = "https://beyondchats.com";
+
 export async function scrapeOldestBlogs() {
-  let url = "https://beyondchats.com/blogs";
+  let url = `${BASE_URL}/blogs`;
   const allLinks: string[] = [];
 
-  // walk through pagination using older posts
+  // Crawl pagination
   while (url) {
     const res = await axios.get(url);
-    const dom = new JSDOM(res.data);
-    const doc = dom.window.document;
+    const $ = cheerio.load(res.data);
 
-    const links = [...doc.querySelectorAll("a")]
-      .map(a => a.href)
-      .filter(h => h.includes("/blogs/") && !h.includes("/page/"));
+    $("a").each((_, el) => {
+      const href = $(el).attr("href");
+      if (
+        href &&
+        href.includes("/blogs/") &&
+        !href.includes("/page/") &&
+        !href.includes("#")
+      ) {
+        const full = href.startsWith("http")
+          ? href
+          : `${BASE_URL}${href}`;
 
-    for (const link of links) {
-      if (!allLinks.includes(link)) {
-        allLinks.push(link);
+        if (!allLinks.includes(full)) {
+          allLinks.push(full);
+        }
       }
-    }
+    });
 
-    // find older posts link
-    const next = doc.querySelector("a.next");
-
+    const next = $("a.next").attr("href");
     if (!next) break;
-    url = next.getAttribute("href")!;
+
+    url = next.startsWith("http") ? next : `${BASE_URL}${next}`;
   }
 
-  // take the last 5 = oldest
+  // Oldest 5
   const oldestFive = allLinks.slice(-5);
 
   let inserted = 0;
@@ -45,17 +52,28 @@ export async function scrapeOldestBlogs() {
 
     if (exists.length) continue;
 
-    const html = await axios.get(link);
-    const dom = new JSDOM(html.data, { url: link });
+    const page = await axios.get(link);
+    const $ = cheerio.load(page.data);
 
-    const reader = new Readability(dom.window.document);
-    const article = reader.parse();
+    const title =
+      $("h1").first().text().trim() ||
+      link.split("/").pop()?.replace(/-/g, " ") ||
+      "Untitled Article";
 
-    if (!article?.title || !article?.textContent) continue;
+    let content = "";
+
+    $("p").each((_, el) => {
+      const text = $(el).text().trim();
+      if (text.length > 40) {
+        content += text + "\n\n";
+      }
+    });
+
+    if (content.length < 300) continue;
 
     await db.insert(articles).values({
-      title: article.title.trim(),
-      content: article.textContent.trim(),
+      title,
+      content,
       sourceUrl: link,
       isUpdated: false,
     });
@@ -63,8 +81,5 @@ export async function scrapeOldestBlogs() {
     inserted++;
   }
 
-  return {
-    success: true,
-    inserted,
-  };
+  return { success: true, inserted };
 }
