@@ -6,6 +6,7 @@ import { db } from "./db";
 import { articles } from "./schema";
 import { eq } from "drizzle-orm";
 import { generateWithGroq } from "./groq";
+import { scrapeState } from "./scrapeState";
 
 const cleanHtml = (html: string): string => {
   return html
@@ -31,30 +32,26 @@ const extractArticleContent = async (url: string): Promise<string> => {
   const article = reader.parse();
 
   if (!article?.content) return "";
-
   return cleanHtml(article.content);
 };
 
-/* =========================
-   GET ARTICLES
-========================= */
+// get articles
 export const getArticles = async (_req: Request, res: Response) => {
   const data = await db.select().from(articles);
   res.json(data);
 };
 
-/* =========================
-   SCRAPE OLDEST 5 ARTICLES
-========================= */
+// scrape and store articles
 export const scrapeAndStoreArticles = async (
   _req: Request,
   res: Response
 ) => {
   try {
+    scrapeState.isScraping = true;
+
     let url = "https://beyondchats.com/blogs";
     const allLinks: string[] = [];
 
-    // Crawl using "Older posts"
     while (url) {
       const page = await axios.get(url);
       const dom = new JSDOM(page.data);
@@ -81,10 +78,7 @@ export const scrapeAndStoreArticles = async (
       url = next.getAttribute("href")!;
     }
 
-    // Take oldest 5
     const oldestFive = allLinks.slice(-5);
-
-    let inserted = 0;
 
     for (const link of oldestFive) {
       const exists = await db
@@ -110,20 +104,18 @@ export const scrapeAndStoreArticles = async (
         sourceUrl: link,
         isUpdated: false,
       });
-
-      inserted++;
     }
 
-    res.json({ success: true, inserted });
+    scrapeState.isScraping = false;
+    res.json({ success: true });
   } catch (err) {
-    console.error(err);
+    scrapeState.isScraping = false;
+    console.error("Scrape failed:", err);
     res.status(500).json({ error: "Scraping failed" });
   }
 };
 
-/* =========================
-   ENHANCE SINGLE ARTICLE
-========================= */
+// enhance single article
 export const enhanceArticle = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
@@ -137,17 +129,11 @@ export const enhanceArticle = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Article not found" });
     }
 
-    console.log("Enhancing article:", article.title);
-
     const enhanced = await generateWithGroq(
       article.content,
       article.title,
       article.sourceUrl ?? ""
     );
-
-    if (!enhanced || enhanced.length < 50) {
-      throw new Error("Empty or invalid AI response");
-    }
 
     await db
       .update(articles)
@@ -159,17 +145,15 @@ export const enhanceArticle = async (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (err: any) {
-    console.error("❌ Enhance failed:", err?.response?.data || err.message);
+    console.error("Enhancement failed:", err);
     res.status(500).json({
       error: "Enhancement failed",
-      details: err?.response?.data || err.message,
+      details: err?.message,
     });
   }
 };
 
-/* =========================
-   ENHANCE ALL
-========================= */
+// enhance all articles (testing)
 export const enhanceAllArticles = async (_req: Request, res: Response) => {
   try {
     const all = await db.select().from(articles);
@@ -189,7 +173,7 @@ export const enhanceAllArticles = async (_req: Request, res: Response) => {
     }
 
     res.json({ success: true });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: "Bulk enhancement failed" });
   }
 };

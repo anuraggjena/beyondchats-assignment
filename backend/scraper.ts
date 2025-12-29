@@ -9,7 +9,7 @@ export async function scrapeOldestBlogs() {
   let url = "https://beyondchats.com/blogs";
   const allLinks: string[] = [];
 
-  // 1️⃣ Walk through pagination using "Older posts"
+  // walk through pagination using older posts
   while (url) {
     const res = await axios.get(url);
     const dom = new JSDOM(res.data);
@@ -25,14 +25,14 @@ export async function scrapeOldestBlogs() {
       }
     }
 
-    // find "Older posts" link
+    // find older posts link
     const next = doc.querySelector("a.next");
 
     if (!next) break;
     url = next.getAttribute("href")!;
   }
 
-  // 2️⃣ Take the LAST 5 = oldest
+  // take the last 5 = oldest
   const oldestFive = allLinks.slice(-5);
 
   let inserted = 0;
