@@ -7,7 +7,6 @@ import routes from "./routes";
 import { db } from "./db";
 import { articles } from "./schema";
 import { scrapeAndStoreArticles } from "./controllers";
-import { scrapeState } from "./scrapeState";
 
 const app = express();
 
@@ -21,10 +20,6 @@ app.use("/api", routes);
 
 const PORT = process.env.PORT || 5000;
 
-app.get("/api/status", (_req, res) => {
-  res.json({ scraping: scrapeState.isScraping });
-});
-
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
 
@@ -32,23 +27,13 @@ app.listen(PORT, async () => {
     const existing = await db.select().from(articles);
 
     if (existing.length === 0) {
-      console.log("No articles found. Starting auto-scrape...");
-
-      scrapeState.isScraping = true;
-
-      await scrapeAndStoreArticles(
-        null as any,
-        { json: () => {} } as any
-      );
-
-      scrapeState.isScraping = false;
-      console.log("Auto-scraping completed.");
+      console.log("No articles found. Running initial scrape...");
+      await scrapeAndStoreArticles({} as any, { json: () => {} } as any);
+      console.log("Scraping completed");
     } else {
-      scrapeState.isScraping = false;
-      console.log("Articles already exist. Skipping scrape.");
+      console.log("Articles already exist");
     }
-  } catch (error) {
-    scrapeState.isScraping = false;
-    console.error("Startup scrape failed:", error);
+  } catch (err) {
+    console.error("Startup error:", err);
   }
 });
