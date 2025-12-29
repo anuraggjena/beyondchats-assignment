@@ -7,26 +7,28 @@ This project scrapes blog articles from the BeyondChats website and enhances the
 ```
 flowchart TD
 
-    A[User Browser] -->|Loads UI| B[React Frontend]
-    B -->|Check status| C[/api/status/]
-    C --> D[Express Backend]
+    A[User Opens Web App] --> B[React Frontend]
+    
+    B -->|Check status| C[/api/status]
+    C --> D{Is scraping done?}
 
-    D -->|Scraping state| E[Scrape State Manager]
+    D -- No --> E[Show loading screen]
+    E --> C
 
-    E -->|If empty| F[Auto Scraper]
-    F -->|Fetch blog pages| G[BeyondChats Website]
-    F -->|Extract content| H[Article Parser]
-    H --> I[(PostgreSQL Database)]
+    D -- Yes --> F[Fetch articles]
+    F --> G[/api/articles]
 
-    B -->|Fetch articles| D
-    D --> I
+    G --> H[(PostgreSQL DB)]
 
-    B -->|Enhance article| D
-    D -->|Send content| J[Groq LLM API]
-    J -->|Enhanced content| D
-    D --> I
+    B -->|Select article| I[View Original Content]
 
-    B -->|Display| K[Original + Enhanced View]
+    B -->|Click Enhance| J[/api/articles/:id/enhance]
+    J --> K[Groq LLM API]
+    K --> J
+    J --> H
+
+    H --> B
+    B --> L[Render Enhanced Content]
 ```
 
 ## Project Structure
