@@ -28,7 +28,7 @@ app.listen(PORT, async () => {
 
     if (existing.length === 0) {
       console.log("No articles found. Running initial scrape...");
-      await scrapeAndStoreArticles({} as any, { json: () => {} } as any);
+      await scrapeAndStoreArticles();
       console.log("Scraping completed");
     } else {
       console.log("Articles already exist");

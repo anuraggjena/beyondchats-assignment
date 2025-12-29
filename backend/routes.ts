@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { enhanceAllArticles, enhanceArticle, getArticles, scrapeAndStoreArticles } from "./controllers";
+import { enhanceArticle, getArticles, scrapeAndStoreArticles } from "./controllers";
 import { db } from "./db";
 import { articles } from "./schema";
 
@@ -15,6 +15,5 @@ router.get("/status", async (_req, res) => {
 router.get("/articles", getArticles);
 router.post("/articles/scrape", scrapeAndStoreArticles);
 router.post("/articles/:id/enhance", enhanceArticle);
-router.post("/articles/enhance-all", enhanceAllArticles);
 
 export default router;
