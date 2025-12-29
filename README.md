@@ -4,29 +4,30 @@ This project scrapes blog articles from the BeyondChats website and enhances the
 
 # System Architecture & Data Flow
 
-```
+```mermaid
 flowchart TD
 
-    A[User Browser] -->|Loads UI| B[React Frontend]
-    B -->|Check status| C[/api/status/]
-    C --> D[Express Backend]
+    A["User Opens Web App"] --> B["React Frontend"]
 
-    D -->|Scraping state| E[Scrape State Manager]
+    B -->|Check status| C["GET api status"]
+    C --> D{Is scraping done?}
 
-    E -->|If empty| F[Auto Scraper]
-    F -->|Fetch blog pages| G[BeyondChats Website]
-    F -->|Extract content| H[Article Parser]
-    H --> I[(PostgreSQL Database)]
+    D -- No --> E["Show loading screen"]
+    E --> C
 
-    B -->|Fetch articles| D
-    D --> I
+    D -- Yes --> F["Fetch articles"]
+    F --> G["GET api articles"]
+    G --> H[(PostgreSQL Database)]
 
-    B -->|Enhance article| D
-    D -->|Send content| J[Groq LLM API]
-    J -->|Enhanced content| D
-    D --> I
+    B -->|Select article| I["View Original Content"]
 
-    B -->|Display| K[Original + Enhanced View]
+    B -->|Click Enhance| J["POST enhance article"]
+    J --> K["Groq LLM API"]
+    K --> J
+    J --> H
+
+    H --> B
+    B --> L["Render Enhanced Content"]
 ```
 
 ## Project Structure
