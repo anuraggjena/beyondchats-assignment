@@ -10,7 +10,7 @@ export async function scrapeOldestBlogs() {
   let url = `${BASE_URL}/blogs`;
   const allLinks: string[] = [];
 
-  // Crawl pagination
+  // crawl pagination
   while (url) {
     const res = await axios.get(url);
     const $ = cheerio.load(res.data);
@@ -39,7 +39,7 @@ export async function scrapeOldestBlogs() {
     url = next.startsWith("http") ? next : `${BASE_URL}${next}`;
   }
 
-  // Oldest 5
+  // oldest 5 posts
   const oldestFive = allLinks.slice(-5);
 
   let inserted = 0;

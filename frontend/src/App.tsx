@@ -19,14 +19,14 @@ export default function App() {
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ✅ Fetch articles
+  // fetch articles
   const fetchArticles = async () => {
     const res = await fetch(`${API}/articles`);
     const data = await res.json();
     setArticles(data);
   };
 
-  // ✅ Poll backend until articles exist
+  // fetch status from backend until articles exist
   const checkStatus = async () => {
     try {
       const res = await fetch(`${API}/status`);
@@ -46,7 +46,7 @@ export default function App() {
     }
   };
 
-  // 🔁 Start polling
+  // start polling
   useEffect(() => {
     pollRef.current = setInterval(checkStatus, 1500);
 
@@ -55,7 +55,7 @@ export default function App() {
     };
   }, []);
 
-  // Enhance
+  // enhance articles
   const enhanceArticle = async (id: number) => {
     try {
       setEnhancingId(id);
@@ -66,7 +66,7 @@ export default function App() {
     }
   };
 
-  // 🌀 Loading screen
+  // initial loading screen
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">
@@ -81,6 +81,7 @@ export default function App() {
     );
   }
 
+  // main app UI
   return (
     <div className="min-h-screen bg-neutral-950 text-white">
       <header className="border-b border-neutral-800 px-6 py-4">

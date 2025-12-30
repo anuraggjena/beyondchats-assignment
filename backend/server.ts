@@ -27,7 +27,7 @@ app.listen(PORT, async () => {
 
     scraperState.isScraping = true;
 
-    // 🔥 run in background
+    // run in background
     scrapeAndStoreArticles()
       .then(() => {
         scraperState.isScraping = false;
