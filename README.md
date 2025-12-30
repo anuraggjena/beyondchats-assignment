@@ -3,6 +3,7 @@
 This project scrapes blog articles from the BeyondChats website and enhances them using AI. Users can compare original content with AI-enhanced versions in a clean UI.
 
 Frontend: https://beyondchats-assignment-nine.vercel.app
+
 Backend: https://beyondchats-backend-heas.onrender.com
 
 # System Architecture & Data Flow
