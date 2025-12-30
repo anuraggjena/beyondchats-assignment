@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 type Article = {
@@ -17,46 +17,65 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
 
-  // ✅ Fetch once on load
-  useEffect(() => {
-    fetchArticles();
-  }, []);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ✅ Fetch articles
   const fetchArticles = async () => {
+    const res = await fetch(`${API}/articles`);
+    const data = await res.json();
+    setArticles(data);
+  };
+
+  // ✅ Poll backend until articles exist
+  const checkStatus = async () => {
     try {
-      const res = await fetch(`${API}/articles`);
+      const res = await fetch(`${API}/status`);
       const data = await res.json();
-      setArticles(data);
+
+      if (!data.scraping) {
+        setLoading(false);
+        fetchArticles();
+        
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      }
     } catch (err) {
-      console.error("Failed to fetch articles", err);
-    } finally {
-      setLoading(false);
+      console.error("Status check failed", err);
     }
   };
 
+  // 🔁 Start polling
+  useEffect(() => {
+    pollRef.current = setInterval(checkStatus, 1500);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  // Enhance
   const enhanceArticle = async (id: number) => {
     try {
       setEnhancingId(id);
-
-      await fetch(`${API}/articles/${id}/enhance`, {
-        method: "POST",
-      });
-
+      await fetch(`${API}/articles/${id}/enhance`, { method: "POST" });
       await fetchArticles();
-    } catch (err) {
-      console.error("Enhancement failed", err);
     } finally {
       setEnhancingId(null);
     }
   };
 
-  // ⏳ Loader
+  // 🌀 Loading screen
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-4 border-neutral-700 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-lg">Loading articles...</p>
+          <p className="text-lg">Preparing articles…</p>
+          <p className="text-sm text-gray-400">
+            Fetching content for the first time
+          </p>
         </div>
       </div>
     );
@@ -75,7 +94,7 @@ export default function App() {
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[300px_1fr] gap-6 p-6">
         {/* Sidebar */}
-        <aside className="bg-neutral-900 rounded-xl p-4 h-[80vh] overflow-y-auto space-y-4">
+        <aside className="bg-neutral-900 rounded-xl p-4 space-y-4 h-[80vh] overflow-y-auto">
           <h2 className="text-sm font-semibold text-gray-300 mb-3">
             Articles
           </h2>
@@ -133,9 +152,7 @@ export default function App() {
                 Original Content
               </h3>
               <div className="prose prose-invert max-w-none">
-                <ReactMarkdown>
-                  {selected.content}
-                </ReactMarkdown>
+                <ReactMarkdown>{selected.content}</ReactMarkdown>
               </div>
 
               <hr className="my-6 border-neutral-800" />
@@ -146,14 +163,12 @@ export default function App() {
 
               {selected.enhancedContent ? (
                 <div className="prose prose-invert max-w-none">
-                <ReactMarkdown>
-                  {selected.enhancedContent}
-                </ReactMarkdown>
+                  <ReactMarkdown>
+                    {selected.enhancedContent}
+                  </ReactMarkdown>
                 </div>
               ) : (
-                <p className="text-gray-500">
-                  Not enhanced yet.
-                </p>
+                <p className="text-gray-500">Not enhanced yet.</p>
               )}
             </>
           )}

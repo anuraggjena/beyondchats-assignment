@@ -4,6 +4,7 @@ import { articles } from "./schema";
 import { eq } from "drizzle-orm";
 import { scrapeOldestBlogs } from "./scraper";
 import { generateWithGroq } from "./groq";
+import { scraperState } from "./scraperState";
 
 export const getArticles = async (_: Request, res: Response) => {
   const data = await db.select().from(articles);
@@ -12,7 +13,10 @@ export const getArticles = async (_: Request, res: Response) => {
 
 export const getStatus = async (_: Request, res: Response) => {
   const rows = await db.select().from(articles);
-  res.json({ scraping: rows.length === 0 });
+  res.json({ 
+    scraping: scraperState.isScraping,
+    articleCount: rows.length
+  });
 };
 
 export const scrapeAndStoreArticles = async () => {
