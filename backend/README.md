@@ -11,7 +11,7 @@ This backend handles scraping blog articles from BeyondChats, storing them in a 
 - **Drizzle ORM**
 - **Groq AI (LLaMA 3.1)**
 - **Axios**
-- **JSDOM + Readability**
+- **Cheerio**
 
 ## Folder Structure
 
@@ -45,6 +45,7 @@ Create a `.env` file in the backend directory with the following variables:
 ```env
 DATABASE_URL=your_postgres_connection_string
 GROQ_API_KEY=your_groq_api_key
+SERPER_API_KEY=your_serper_api_key
 ```
 
 ### 3. Start the Server
